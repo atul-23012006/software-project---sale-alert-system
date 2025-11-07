@@ -1,105 +1,405 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tracked Product Links</title>
-  <style>
-    body {
-      background: #f8fafb;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-    }
-    .history-container {
-      background: #fff;
-      margin-top: 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-      padding: 2rem 2.5rem 2rem 2.5rem;
-      min-width: 350px;
-      max-width: 580px;
-      width: 90%;
-    }
-    h2 {
-      margin-top: 0;
-      color: #007bff;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
-    ul {
-      padding-left: 0;
-      list-style: none;
-      margin: 0;
-    }
-    li {
-      background: #f5f8fa;
-      border-bottom: 1px solid #e0e0e0;
-      padding: 14px 12px;
-      margin-bottom: 10px;
-      border-radius: 6px;
-      overflow-wrap: break-word;
-      font-size: 1rem;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.01);
-      transition: background 0.2s;
-    }
-    li:last-child { border-bottom: none;}
-    .back-link {
-      text-decoration: none;
-      color: #fff;
-      background: #6c757d;
-      padding: 10px 24px;
-      border-radius: 7px;
-      display: inline-block;
-      margin-top: 1.5rem;
-      transition: background 0.2s;
-      font-weight: 600;
-      margin-bottom: 0.6em;
-    }
-    .back-link:hover {
-      background: #343a40;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tracked Product Links — Stylish</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1724;
+    --muted: #98a0b3;
+    --amazon-bg: linear-gradient(135deg,#FF8A00 0%, #FFCF55 100%);
+    --amazon-accent: #FF8A00;
+    --flipkart-bg: linear-gradient(135deg,#0058A3 0%, #00A6FF 100%);
+    --flipkart-accent: #0058A3;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+    background:
+      radial-gradient(1200px 600px at 10% 10%, rgba(0,120,255,0.06), transparent),
+      radial-gradient(800px 400px at 90% 80%, rgba(255,160,0,0.03), transparent),
+      var(--bg);
+    color:#e6eef8;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:36px;
+  }
+
+  .app{
+    width:100%;
+    max-width:1100px;
+    padding:28px;
+    border-radius:14px;
+    background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));
+    box-shadow:0 10px 30px rgba(2,6,23,0.6);
+    backdrop-filter:blur(8px) saturate(120%);
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  header{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+  .logo{
+    width:60px;height:60px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#1f2937,#0b1220);
+  }
+  h1{font-size:20px;margin:0;color:#f8fafc;font-weight:700}
+  p.lead{margin:0;color:var(--muted);font-size:13px}
+  .controls{display:flex;gap:10px;margin-left:auto}
+  .btn{
+    background:rgba(255,255,255,0.03);
+    color:#e6eef8;
+    padding:10px 14px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.03);
+    cursor:pointer;
+    font-weight:600;
+    font-size:13px;
+    transition:transform .12s ease,background .12s ease;
+  }
+  .btn:hover{transform:translateY(-3px);background:rgba(255,255,255,0.04)}
+
+  .layout{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-top:18px;
+  }
+  .panel{
+    background:linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0.01));
+    border-radius:12px;
+    padding:16px;
+    border:1px solid rgba(255,255,255,0.02);
+    box-shadow:0 8px 20px rgba(2,6,23,0.5);
+    min-height:220px;
+  }
+  .brand-badge{padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px;color:#fff}
+  .amazon-badge{background:var(--amazon-accent)}
+  .flipkart-badge{background:var(--flipkart-accent)}
+
+  ul.link-list{list-style:none;padding:0;margin:8px 0 0;display:flex;flex-direction:column;gap:10px}
+  .link-item{
+    display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;
+    background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.02);
+    transition:transform .14s ease,box-shadow .14s ease;
+  }
+  .link-item:hover{transform:translateY(-6px);box-shadow:0 14px 30px rgba(2,6,23,0.6)}
+  .fav-icon{width:44px;height:44;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700}
+  .amazon-square{background:var(--amazon-bg)}
+  .flipkart-square{background:var(--flipkart-bg)}
+  .link-content{flex:1;min-width:0}
+  .link-title{font-weight:700;font-size:14px;margin:0;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .link-url {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+
+  /* ✨ Fix for long links overflowing */
+  white-space: normal;          /* allow wrapping */
+  word-break: break-all;        /* break long URLs cleanly */
+  overflow-wrap: anywhere;      /* modern browsers */
+}
+.link-item {
+  align-items: flex-start; /* allow text to grow vertically */
+}
+
+  .link-actions{display:flex;gap:8px;align-items:center;margin-left:8px}
+  .action{
+    background:rgba(255,255,255,0.03);padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);
+    cursor:pointer;font-size:13px;color:#e6eef8;display:inline-flex;align-items:center;gap:8px;
+    transition:background .12s ease,transform .12s ease;
+  }
+  .action:hover{background:rgba(255,255,255,0.045);transform:translateY(-3px)}
+  .empty{
+    color:var(--muted);
+    padding:18px;text-align:center;border-radius:8px;
+    border:1px dashed rgba(255,255,255,0.02);
+  }
+
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+  .panel,.link-item{opacity:0;transform:translateY(10px);animation:fadeInUp .45s ease forwards}
+  /* ---------- Replace layout/panel rules with this ---------- */
+
+body {
+  /* prevent page-level horizontal scrolling */
+  overflow-x: hidden;
+}
+
+/* app container: prevent internal horizontal overflow */
+.app {
+  overflow-x: hidden;
+}
+
+/* layout becomes a wrapping flex container */
+.layout {
+  display: flex;
+  flex-wrap: wrap;          /* allow panels to wrap to a new row */
+  gap: 20px;
+  margin-top: 18px;
+  align-items: flex-start;  /* keep panels aligned at the top */
+  justify-content: space-between;
+}
+
+/* panels become flexible cards that try to sit side-by-side but will wrap */
+.panel {
+  flex: 1 1 48%;            /* grow, shrink, ideal width 48% (two cards per row) */
+  min-width: 320px;         /* below this width the panel will wrap to a new row */
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.02);
+  box-shadow: 0 8px 20px rgba(2,6,23,0.5);
+  min-height: 220px;
+  overflow: auto;           /* allow panel scroll vertically if very tall */
+  align-self: flex-start;   /* prevents stretching when other panel is taller */
+}
+
+/* ensure link items allow multi-line content without pushing siblings horizontally */
+.link-item {
+  display: flex;
+  align-items: flex-start;  /* allow vertical growth when URL wraps */
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+  border: 1px solid rgba(255,255,255,0.02);
+  transition: transform .14s cubic-bezier(.2,.9,.3,1), box-shadow .14s ease;
+}
+
+/* allow URL text to wrap and break safely */
+.link-url {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* small responsive fallback: make each panel full width on very small screens */
+@media (max-width: 740px) {
+  .panel { flex-basis: 100%; min-width: auto; }
+}
+
+  @keyframes fadeInUp{to{opacity:1;transform:none}}
+
+  /* floating back button */
+  .back-btn{
+    position:fixed;
+    bottom:26px;
+    left:26px;
+    background:rgba(255,255,255,0.08);
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.15);
+    padding:10px 20px;
+    border-radius:10px;
+    font-weight:600;
+    text-decoration:none;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    backdrop-filter:blur(10px);
+    transition:all 0.2s ease;
+  }
+  .back-btn:hover{background:rgba(255,255,255,0.15);transform:translateY(-3px)}
+</style>
 </head>
 <body>
-  <div class="history-container">
-    <h2>Your Tracked Product Links</h2>
-    <ul id="historyList">
-      <li>Loading history...</li>
-    </ul>
-    <a class="back-link" href="/">← Back to Tracker</a>
+  <div class="app">
+    <header>
+      <div class="logo"><svg width="36" height="36" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#0b1220"/><path d="M6 8h12M6 12h12M6 16h12" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+      <div>
+        <h1>Tracked Product Links</h1>
+        <p class="lead">Your Amazon & Flipkart watchlist — open or copy saved links.</p>
+      </div>
+      <div class="controls">
+        <button class="btn" id="refreshBtn">Refresh</button>
+        <button class="btn" id="copyAllBtn">Copy All</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="panel">
+        <h3><span class="brand-badge amazon-badge">AMZ</span>&nbsp;Amazon Links</h3>
+        <ul id="amazonList" class="link-list"><li class="empty">Loading Amazon links…</li></ul>
+      </section>
+
+      <section class="panel">
+        <h3><span class="brand-badge flipkart-badge">FK</span>&nbsp;Flipkart Links</h3>
+        <ul id="flipkartList" class="link-list"><li class="empty">Loading Flipkart links…</li></ul>
+      </section>
+    </div>
   </div>
-  <script>
-    async function showHistory() {
-      const list = document.getElementById('historyList');
-      try {
-        const response = await fetch('/history');
-        if (!response.ok) {
-          list.innerHTML = '<li style="color:#bd2130;">No history found.</li>';
-          return;
-        }
-        const text = await response.text();
-        const lines = text.split('\n').filter(line => line.trim() !== '');
-        if (lines.length === 0) {
-          list.innerHTML = '<li>No tracked URLs found.</li>';
-          return;
-        }
-        list.innerHTML = '';
-        for (let url of lines) {
-          let display = url.length > 85 ? url.slice(0,82)+'...' : url;
-          let item = document.createElement('li');
-          item.innerHTML = `<a href="${url}" target="_blank" style="color:#007bff;word-break:break-all;text-decoration:underline;">${display}</a>`;
-          list.appendChild(item);
-        }
-      } catch (e) {
-        list.innerHTML = '<li style="color:#bd2130;">Could not load history.</li>';
-      }
+
+  <!-- Floating Back Button -->
+  <a href="/index.html" class="back-btn">← Back to Home</a>
+
+<script>
+  const amazonListEl = document.getElementById('amazonList');
+  const flipkartListEl = document.getElementById('flipkartList');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const copyAllBtn = document.getElementById('copyAllBtn');
+
+  async function fetchHistory(){
+    try {
+      const res = await fetch('/history');
+      if (!res.ok) throw new Error('No history');
+      const text = await res.text();
+      // dedupe and trim lines
+      const set = new Set();
+      text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => set.add(l));
+      return Array.from(set);
+    } catch (e) {
+      return null;
     }
-    showHistory();
-  </script>
+  }
+
+  function detectBrand(url){
+    const u = url.toLowerCase();
+    if (u.includes('amazon')) return 'amazon';
+    if (u.includes('flipkart')) return 'flipkart';
+    if (u.includes('ebay')) return 'ebay';
+    return 'other';
+  }
+
+  function makeItem(url, brand){
+    const display = url.length > 80 ? url.slice(0,78) + '…' : url;
+    const li = document.createElement('li');
+    li.className = 'link-item';
+
+    const fav = document.createElement('div');
+    fav.className = 'fav-icon';
+    if (brand === 'amazon') {
+      fav.classList.add('amazon-square');
+      fav.textContent = 'A';
+    } else if (brand === 'flipkart') {
+      fav.classList.add('flipkart-square');
+      fav.textContent = 'F';
+    } else if (brand === 'ebay') {
+      fav.style.background = 'linear-gradient(135deg,#333,#111)';
+      fav.textContent = 'E';
+    } else {
+      fav.style.background = 'linear-gradient(135deg,#6b7280,#374151)';
+      fav.textContent = '•';
+    }
+
+    const content = document.createElement('div');
+    content.className = 'link-content';
+
+    const title = document.createElement('div');
+    title.className = 'link-title';
+    title.textContent = display;
+
+    const urlEl = document.createElement('div');
+    urlEl.className = 'link-url';
+    urlEl.textContent = url;
+
+    content.appendChild(title);
+    content.appendChild(urlEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'link-actions';
+
+    const openBtn = document.createElement('button');
+    openBtn.className = 'action';
+    openBtn.innerHTML = 'Open';
+    openBtn.title = 'Open in a new tab';
+    openBtn.addEventListener('click', () => window.open(url, '_blank'));
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'action';
+    copyBtn.innerHTML = 'Copy';
+    copyBtn.title = 'Copy link';
+    copyBtn.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(url); showToast('Link copied'); }
+      catch { showToast('Copy failed'); }
+    });
+
+    actions.appendChild(openBtn);
+    actions.appendChild(copyBtn);
+
+    li.appendChild(fav);
+    li.appendChild(content);
+    li.appendChild(actions);
+
+    li.style.animationDelay = (Math.random()*260)+'ms';
+    return li;
+  }
+
+  function showToast(msg){
+    let t = document.getElementById('toast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = 'toast';
+      t.className = 'toast';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=> t.classList.remove('show'), 1500);
+  }
+
+  async function render(){
+    const lines = await fetchHistory();
+
+    // clear
+    amazonListEl.innerHTML = '';
+    flipkartListEl.innerHTML = '';
+
+    if (!lines) {
+      amazonListEl.innerHTML = '<li class="empty">Could not load history.</li>';
+      flipkartListEl.innerHTML = '<li class="empty">Could not load history.</li>';
+      return;
+    }
+
+    // Split by brand but keep original order where possible
+    const amazon = [];
+    const flipkart = [];
+    const others = [];
+
+    for (const u of lines){
+      const brand = detectBrand(u);
+      if (brand === 'amazon') amazon.push(u);
+      else if (brand === 'flipkart') flipkart.push(u);
+      else others.push({ url: u, brand });
+    }
+
+    // Append Amazon & Flipkart items
+    if (amazon.length === 0) amazonListEl.innerHTML = '<li class="empty">No Amazon links tracked.</li>';
+    else amazon.forEach(u => amazonListEl.appendChild(makeItem(u, 'amazon')));
+
+    if (flipkart.length === 0) flipkartListEl.innerHTML = '<li class="empty">No Flipkart links tracked.</li>';
+    else flipkart.forEach(u => flipkartListEl.appendChild(makeItem(u, 'flipkart')));
+
+    // Distribute other/ebay entries intelligently:
+    // place each other item into the *shorter* column but keep its own brand/marker.
+    for (const obj of others){
+      const target = (amazonListEl.childElementCount <= flipkartListEl.childElementCount) ? amazonListEl : flipkartListEl;
+      // if the target currently only has the "empty" placeholder, replace it
+      if (target.querySelector('.empty')) target.innerHTML = '';
+      target.appendChild(makeItem(obj.url, obj.brand));
+    }
+
+    // If after distribution a panel is still empty (no items), show placeholder
+    if (!amazonListEl.hasChildNodes()) amazonListEl.innerHTML = '<li class="empty">No Amazon links tracked.</li>';
+    if (!flipkartListEl.hasChildNodes()) flipkartListEl.innerHTML = '<li class="empty">No Flipkart links tracked.</li>';
+  }
+
+  refreshBtn.addEventListener('click', () => { render(); showToast('Refreshed'); });
+
+  copyAllBtn.addEventListener('click', async () => {
+    const lines = await fetchHistory();
+    if (!lines) { showToast('Nothing to copy'); return; }
+    try { await navigator.clipboard.writeText(lines.join('\\n')); showToast('All links copied'); }
+    catch { showToast('Copy failed'); }
+  });
+
+  // initial render
+  render();
+</script>
+
 </body>
 </html>
