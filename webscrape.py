@@ -1,94 +1,314 @@
+
 import sys
+import re
+import os
+import json
+import traceback
+import time
+from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-import os
 from twilio.rest import Client
 
-# --- Input handling ---
-user_input = sys.argv[1] if len(sys.argv) > 1 else "wireless mouse"
-target_price = float(sys.argv[2]) if len(sys.argv) > 2 else 0.0
-phone_number = sys.argv[3] if len(sys.argv) > 3 else ""
+# Selenium imports
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, WebDriverException
 
 load_dotenv()
-account_sid = os.environ["TWILIO_ACCOUNT_SID"]
-auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 
-# Save URL to history file if not already present
-with open('saved_input.txt', 'a+') as file:
-    file.seek(0)
-    contents = file.read()
-    if user_input not in contents:
-        if contents and not contents.endswith('\n'):
-            file.write('\n')
-        file.write(user_input + '\n')
+# --- Input handling ---
+args = sys.argv
+user_input = args[1].strip() if len(args) > 1 else ""
+try:
+    target_price = float(args[2]) if len(args) > 2 and args[2] != "" else 0.0
+except Exception:
+    target_price = 0.0
+phone_number = args[3] if len(args) > 3 else ""
 
-# --- URL construction ---
-if user_input.startswith("http://") or user_input.startswith("https://"):
-    url = user_input
-else:
-    query = user_input.replace(" ", "+")
-    url = f"https://www.amazon.com/s?k={query}"
+# Twilio credentials from env
+TW_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+TW_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TW_FROM = os.environ.get("TWILIO_FROM_NUMBER", "+17625503038")
 
-headers = {
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7,kn;q=0.6",
-    "Dnt": "1",
-    "Priority": "u=0, i",
-    "Sec-Ch-Ua": "'Not)A;Brand';v='8', 'Chromium';v='138', 'Google Chrome';v='138'",
-    "Sec-Ch-Ua-Mobile": "?0",
-    "Sec-Ch-Ua-Platform": "'Windows'",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "cross-site",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
+# Save history
+try:
+    with open("saved_input.txt", "a+") as f:
+        f.seek(0)
+        contents = f.read()
+        if user_input and user_input not in contents:
+            if contents and not contents.endswith("\n"):
+                f.write("\n")
+            f.write(user_input + "\n")
+except Exception:
+    pass
+
+# --- Detect site & build URL ---
+def detect_site_and_build_url(inp):
+    s = inp.strip()
+    lower = s.lower()
+    if lower.startswith("http://") or lower.startswith("https://"):
+        if "flipkart" in lower:
+            return "flipkart", s
+        if "ebay" in lower:
+            return "ebay", s
+        if "amazon." in lower:
+            return "amazon", s
+        return "unknown", s
+    if "flipkart" in lower and "amazon" not in lower and "ebay" not in lower:
+        q = re.sub(r'flipkart[:\s]*', '', lower, count=1).strip().replace(" ", "+")
+        return "flipkart", f"https://www.flipkart.com/search?q={q}"
+    if "ebay" in lower and "flipkart" not in lower and "amazon" not in lower:
+        q = re.sub(r'ebay[:\s]*', '', lower, count=1).strip().replace(" ", "+")
+        return "ebay", f"https://www.ebay.com/sch/i.html?_nkw={q}"
+    if "amazon" in lower and "flipkart" not in lower and "ebay" not in lower:
+        q = re.sub(r'amazon[:\s]*', '', lower, count=1).strip().replace(" ", "+")
+        return "amazon", f"https://www.amazon.com/s?k={q}"
+    q = s.replace(" ", "+")
+    return "amazon", f"https://www.amazon.com/s?k={q}"
+
+def parse_price_string(price_str):
+    if not price_str:
+        return None, ""
+    raw = price_str.replace("\xa0", " ").strip()
+    m = re.search(r'(\d{1,3}(?:[,\.\s]\d{3})*(?:[.,]\d+)?|\d+([.,]\d+)?)', raw)
+    if not m:
+        return None, raw
+    cleaned = m.group(1).replace(",", "")
+    try:
+        return float(cleaned), raw
+    except:
+        return None, raw
+
+# --- Requests headers ---
+HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-    "X-Amzn-Trace-Id": "Root=1-68947585-5ed0223209ce826d7986b8df"
+    "Accept-Language": "en-US,en;q=0.9",
+    "Dnt": "1",
 }
 
-response = requests.get(url, headers=headers)
-page_html = response.text
-soup = BeautifulSoup(page_html, "html.parser")
-
-# --- Price extraction for Amazon India ---
-price = None
-
-price_whole = soup.find(class_="a-price-whole")
-if price_whole:
-    price_str = price_whole.get_text().replace(',', '').strip()
-    try:
-        price = float(price_str)
-    except Exception:
-        price = None
-else:
-    # Try fallback selectors (optional, expand as needed)
-    price_alt = soup.find(class_="olpWrapper a-size-small")
-    if price_alt:
+# --- Selenium helper ---
+def selenium_collect_price_text(url, selectors, timeout=12, headless=True):
+    options = webdriver.ChromeOptions()
+    if headless:
         try:
-            price = float(price_alt.get_text().replace(',', '').strip())
-        except Exception:
-            price = None
-    else:
-        price_id = soup.find(id="formattedPrice")
-        if price_id:
-            try:
-                price = float(price_id.get_text().replace(',', '').strip())
-            except Exception:
-                price = None
+            options.add_argument("--headless=new")
+        except:
+            options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--ignore-certificate-errors")
 
-# --- SMS alert and output ---
-if price is not None:
-    if price <= target_price and phone_number:
-        client = Client(account_sid, auth_token)
+    try:
+        driver = webdriver.Chrome(options=options)
+    except WebDriverException:
+        return None, ""
+
+    found_texts = []
+    price_val = None
+    try:
+        driver.get(url)
+        wait = WebDriverWait(driver, timeout)
+        for sel in selectors:
+            try:
+                wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, sel)))
+                elems = driver.find_elements(By.CSS_SELECTOR, sel)
+            except TimeoutException:
+                elems = []
+            if not elems:
+                continue
+            for el in elems:
+                t = el.text.strip()
+                if not t:
+                    continue
+                found_texts.append(t)
+                if price_val is None:
+                    v, raw = parse_price_string(t)
+                    if v is not None:
+                        price_val = v
+            if found_texts:
+                break
+    except Exception:
+        pass
+    finally:
+        try:
+            driver.quit()
+        except:
+            pass
+    return price_val, " | ".join(found_texts)
+
+def selenium_collect_name(url, selectors, timeout=10, headless=True):
+    options = webdriver.ChromeOptions()
+    if headless:
+        try:
+            options.add_argument("--headless=new")
+        except:
+            options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--ignore-certificate-errors")
+
+    try:
+        driver = webdriver.Chrome(options=options)
+    except WebDriverException:
+        return ""
+
+    try:
+        driver.get(url)
+        wait = WebDriverWait(driver, timeout)
+        for sel in selectors:
+            try:
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, sel)))
+                el = driver.find_element(By.CSS_SELECTOR, sel)
+                text = el.text.strip()
+                if text:
+                    return text
+            except TimeoutException:
+                continue
+            except Exception:
+                continue
+    except Exception:
+        pass
+    finally:
+        try:
+            driver.quit()
+        except:
+            pass
+    return ""
+
+# --- Main scraping logic ---
+site, url = detect_site_and_build_url(user_input)
+
+site_selectors = {
+    "amazon": ["span.a-price > span.a-offscreen", ".a-price-whole", "#priceblock_ourprice", "#priceblock_dealprice"],
+    "flipkart": [".Nx9bqj.CxhGGd", "div._30jeq3._1_WHN1", "div._30jeq3", "span._30jeq3"],
+    "ebay": [".ux-textspans", ".s-item__price", ".ux-price"],
+    "unknown": [".Nx9bqj.CxhGGd", ".ux-textspans", ".s-item__price"]
+}
+selectors = site_selectors.get(site, site_selectors["unknown"])
+
+name_selectors = {
+    "flipkart": [".VU-ZEz", "._35KyD6", "span.B_NuCI"],
+    "amazon": ["#productTitle", "span#productTitle", "h1#title", "h1"],
+    "ebay": ["h1[itemprop='name']", ".ux-layout-section__title", ".it-ttl"],
+    "unknown": ["h1", "title"]
+}
+name_sel = name_selectors.get(site, name_selectors["unknown"])
+
+page_html = ""
+try:
+    r = requests.get(url, headers=HEADERS, timeout=18)
+    r.raise_for_status()
+    page_html = r.text
+except Exception:
+    page_html = ""
+
+soup = BeautifulSoup(page_html, "html.parser") if page_html else None
+
+price = None
+raw_text = ""
+product_name = ""
+
+if soup:
+    for sel in selectors:
+        try:
+            node = soup.select_one(sel)
+        except Exception:
+            node = None
+        if node:
+            txt = node.get_text().strip()
+            if txt:
+                raw_text = txt
+                pval, _ = parse_price_string(txt)
+                if pval is not None:
+                    price = pval
+                break
+
+if soup:
+    for sel in name_sel:
+        try:
+            node = soup.select_one(sel)
+        except Exception:
+            node = None
+        if node:
+            nm = node.get_text().strip()
+            if nm:
+                product_name = nm
+                break
+
+if (not raw_text or price is None):
+    try:
+        selenium_price, selenium_text = selenium_collect_price_text(url, selectors, timeout=15, headless=True)
+        if selenium_text and not raw_text:
+            raw_text = selenium_text
+        if selenium_price is not None and price is None:
+            price = selenium_price
+    except Exception:
+        pass
+
+if not product_name:
+    try:
+        product_name = selenium_collect_name(url, name_sel, timeout=12, headless=True)
+    except Exception:
+        product_name = product_name or ""
+
+if not raw_text and soup:
+    try:
+        raw_text = (soup.title.string or "").strip()
+    except Exception:
+        raw_text = ""
+
+# --- Trim product name if it's too long (100 chars) ---
+if product_name and len(product_name) > 100:
+    product_name = product_name[:97] + "..."
+
+# --- Compose SMS message (multi-line) ---
+if product_name:
+    # raw_text often contains the currency symbol; prefer that for the price line
+    price_line = raw_text if raw_text else (f"Price: {price}" if price is not None else "Price not found")
+    message_text = f"SALE ALERT!\nProduct: {product_name}\nPrice: {price_line}"
+else:
+    # fallback to the old single-line/text behavior but in a readable message
+    display_price = raw_text if raw_text else (f"Price: {price}" if price is not None else "No price found")
+    message_text = f"SALE ALERT!\n{display_price}"
+
+# --- SMS Sending ---
+result = {
+    "success": False,
+    "sent_sms": False,
+    "price": price,
+    "raw_text": raw_text,
+    "product_name": product_name,
+    "message": ""
+}
+
+try:
+    if price is not None and price <= target_price and phone_number and TW_SID and TW_TOKEN:
+        client = Client(TW_SID, TW_TOKEN)
         message = client.messages.create(
-            body=f"Price alert! The product is now ${price}",
-            from_="+17625503038",
+            body=message_text,
+            from_=TW_FROM,
             to=phone_number
         )
-        print(f"SMS sent to {phone_number}: {message.status}")
+        result["success"] = True
+        result["sent_sms"] = True
+        result["message"] = f"SMS sent: {message.sid}"
     else:
-        print(f"Current price: ${price} - Target price: ${target_price}. No SMS sent.")
-else:
-    print("Could not find or parse the price for the product. No SMS sent.")
+        if price is None:
+            result["message"] = "No numeric price found; no SMS sent."
+        elif not phone_number:
+            result["message"] = "No phone number provided; no SMS sent."
+        else:
+            result["message"] = f"Price ({price}) is above target ({target_price}); no SMS sent."
+        result["success"] = True
+except Exception as e:
+    result["success"] = False
+    result["message"] = "Twilio send error: " + str(e)
+    result["trace"] = traceback.format_exc()
+
+# Return JSON to Node.js
+print(json.dumps(result))
